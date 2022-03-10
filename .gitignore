@@ -1,0 +1,18 @@
+#node
+node_modules
+
+#env
+.env
+
+#editor
+.idea
+
+#solidity
+coverage
+coverage.json
+typechain
+
+#Hardhat files
+cache
+artifacts
+yarn.lock
