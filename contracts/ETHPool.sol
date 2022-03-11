@@ -127,15 +127,16 @@ contract ETHPool is Ownable, ReentrancyGuard {
         uint256 userTotalDepositAmt = depositMap[msg.sender][ud.lastDepositedAt].totalDepositAmt;
         uint256 userRewardAmt = getRewardAmt(msg.sender, lastRewDepositedAt);
 
-        // Set user`s total claimed amount
-        ud.totalClaimedAmt = ud.totalClaimedAmt.add(userTotalDepositAmt);
-        // Set total claimed amount
-        totalClaimedAmt = totalClaimedAmt.add(userTotalDepositAmt);
+        // Reset user deposit detail
+        depositMap[msg.sender][ud.lastDepositedAt].totalDepositAmt = 0;
+        // Reset user`s total claimed amount
+        ud.totalClaimedAmt = 0;
+        // Set total deposited amount
+        totalDepositAmt = totalDepositAmt.sub(userTotalDepositAmt);
         // Set total reward amount
         totalRewDepositAmt = totalRewDepositAmt.sub(userRewardAmt);
-        // Update claimedAmtMap
-        uint256 userTotalClaimedAmt = getClaimedAmountMap(msg.sender, lastRewDepositedAt);
-        claimedAmtMap[msg.sender][lastRewDepositedAt] = userTotalClaimedAmt.add(userTotalDepositAmt);
+        // Reset claimedAmtMap
+        claimedAmtMap[msg.sender][lastRewDepositedAt] = 0;
 
         // Pay to contract
         payable(msg.sender).transfer(claimableAmt);

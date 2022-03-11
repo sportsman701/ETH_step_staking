@@ -20,7 +20,6 @@ $ yarn test
 
 ### Deploying contracts
 
-
 #### ETH Testnet
 * Environment variables
     - Create a `.env` file with its values:
@@ -31,8 +30,8 @@ REPORT_GAS=<true_or_false>
 ```
 
 * Deploy the ETHPool contract
-```console
-$ yarn hardhat deploy:ETHPool --network <NETWORK_NAME>
+```shell
+yarn hardhat deploy:ETHPool --network <NETWORK_NAME>
 ```
 
 
@@ -45,6 +44,11 @@ ETHERSCAN_API_KEY=[YOUR_ETHERSCAN_API_KEY_HERE]
 * Verify the ETHPool contract
 ```shell
 yarn hardhat verify --network <NETWORK_NAME> DEPLOYED_CONTRACT_ADDRESS
+```
+
+#### Get the total ETH amount of the pool
+```shell
+yarn hardhat query:GetTotalETH --network <NETWORK_NAME> --pooladdr DEPLOYED_CONTRACT_ADDRESS
 ```
 
 ## Unit Test
@@ -63,8 +67,9 @@ yarn hardhat verify --network <NETWORK_NAME> DEPLOYED_CONTRACT_ADDRESS
         - [ ] "3.7 Users should receive rewards considering the time when they deposited in several weeks"
         - [ ] "3.8 When user withdraw some amount while staking in several weeks"
         - [ ] "3.9 Check ETH amount held on the pool"
+        - [ ] "3.10 Check ETH amount after several withdrawing and depositing"
 
 ## Deployed on Rinkeby Testnet
 
-[0xEF873102d2106Da9701aEB95DF5FbCC2c54bBFF9](https://rinkeby.etherscan.io/address/0xEF873102d2106Da9701aEB95DF5FbCC2c54bBFF9)
+[0x50ac559606c9656eD662D03DC2DCb2dEa54bBCae](https://rinkeby.etherscan.io/address/0x50ac559606c9656eD662D03DC2DCb2dEa54bBCae)
 

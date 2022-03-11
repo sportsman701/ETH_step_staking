@@ -142,20 +142,54 @@ export function shouldBehaveLikeETHPool(): void {
         });
 
         it("3.9 Check ETH amount held on the pool", async () => {
-
+            // A deposit
             await ethPool.connect(addr1).deposit({ value: 100 });
             expect(await ethPool.getTotalEth()).to.be.eq(100);
-
+            // B deposit
             await ethPool.connect(addr2).deposit({ value: 300 });
             expect(await ethPool.getTotalEth()).to.be.eq(400);
 
+            // Team deposit
             await ethPool.connect(owner).depositReward({ value: 200 });
             expect(await ethPool.getTotalEth()).to.be.eq(600);
 
+            // A withdraw
             await expect(ethPool.connect(addr1).withdraw()).to.emit(ethPool, 'Withdraw').withArgs(addr1.address, 150);
             expect(await ethPool.getTotalEth()).to.be.eq(450);
-
+            // B withdraw
             await expect(ethPool.connect(addr2).withdraw()).to.emit(ethPool, 'Withdraw').withArgs(addr2.address, 450);
+            expect(await ethPool.getTotalEth()).to.be.eq(0);
+        });
+
+        it("3.10 Check ETH amount after several withdrawing and depositing", async () => {
+            // A deposit
+            await ethPool.connect(addr1).deposit({ value: 100 });
+            expect(await ethPool.getTotalEth()).to.be.eq(100);
+            // B deposit
+            await ethPool.connect(addr2).deposit({ value: 300 });
+            expect(await ethPool.getTotalEth()).to.be.eq(400);
+
+            // Team deposit
+            await ethPool.connect(owner).depositReward({ value: 200 });
+            expect(await ethPool.getTotalEth()).to.be.eq(600);
+            // A withdraw
+            await expect(ethPool.connect(addr1).withdraw()).to.emit(ethPool, 'Withdraw').withArgs(addr1.address, 150);
+            expect(await ethPool.getTotalEth()).to.be.eq(450);
+            // A deposit
+            await ethPool.connect(addr1).deposit({ value: 300 });
+            expect(await ethPool.getTotalEth()).to.be.eq(750);
+
+            // After a week
+            await travelTime(ethers, ONE_WEEK);
+            // Team deposit
+            await ethPool.connect(owner).depositReward({ value: 200 });
+            expect(await ethPool.getTotalEth()).to.be.eq(950);
+
+            // A withdraw
+            await expect(ethPool.connect(addr1).withdraw()).to.emit(ethPool, 'Withdraw').withArgs(addr1.address, 400);
+            expect(await ethPool.getTotalEth()).to.be.eq(550);
+            // B withdraw
+            await expect(ethPool.connect(addr2).withdraw()).to.emit(ethPool, 'Withdraw').withArgs(addr2.address, 550);
             expect(await ethPool.getTotalEth()).to.be.eq(0);
         });
     })

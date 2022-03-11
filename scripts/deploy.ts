@@ -1,6 +1,5 @@
 import { task } from "hardhat/config";
 import { TaskArguments } from "hardhat/types";
-import {ethers} from "hardhat";
 
 task("deploy:ETHPool", "Deploy ETHPool Contract")
     .setAction(async function (taskArguments: TaskArguments, { ethers }) {
