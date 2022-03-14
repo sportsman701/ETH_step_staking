@@ -1,3 +1,4 @@
+
 # Smart Contract Challenge
 
 ## A) Challenge

@@ -12,44 +12,13 @@ import "hardhat/console.sol";
 contract ETHPool is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
 
-    /// User's deposited data
-    struct DepositDetail {
-        uint256 totalDepositAmt;
-        uint256 pastDepositedAt;
-    }
-
-    // User`s Detail Data
-    struct UserDetail {
-        uint256 totalClaimedAmt;
-        uint256 lastDepositedAt;
-    }
-
-    /// Team`s reward deposited data
-    struct RewDepositDetail{
-        uint256 rewAmt;
-        uint256 totalDepositedAmt;
-        uint256 pastRewDepositedAt;
-    }
-
-    // User Deposit Map : address => depositedAt => DepositDetail
-    mapping(address => mapping(uint256 => DepositDetail)) private depositMap;
-    // Last User`s Detail Data (Claimed Amount and Last Deposited Timestamp) : address => UserDetail
-    mapping(address => UserDetail) userDetailMap;
-
-    // Team Reward Deposit Map : rewardDepositedAt => RewardDepositDetail
-    mapping(uint256 => RewDepositDetail) private rewDepositMap;
-    // Last Team reward deposited timestamp
-    uint256 public lastRewDepositedAt;
-
-    // User Claimed Amount Map : address => rewardDepositTimestamp => claimed amount
-    mapping(address => mapping(uint256 => uint256)) private claimedAmtMap;
+    // Deposited K amount map: address => k
+    mapping(address => uint256) private depositedKMap;
+    // Total K
+    uint256 public totalKAmt;
 
     // Total Deposited Amount
     uint256 public totalDepositAmt;
-    // Total Reward Deposited Amount
-    uint256 public totalRewDepositAmt;
-    // Total Claimed Amount
-    uint256 public totalClaimedAmt;
 
     /**
     * ****************************************
@@ -68,24 +37,27 @@ contract ETHPool is Ownable, ReentrancyGuard {
     *   External functions
     * ****************************************
     */
-    /// @dev get total ETH amount holding on contract
-    function getTotalEth() external view returns(uint256) {
-        return totalDepositAmt.add(totalRewDepositAmt).sub(totalClaimedAmt);
-    }
-
     /// @dev Users deposit Ether to the pool
     function deposit() external payable nonReentrant {
         require(msg.value > 0, "ETHPool: Invalid amount");
 
-        uint256 depositedAt = block.timestamp;
-        UserDetail storage ud = userDetailMap[msg.sender];
-        DepositDetail storage dd = depositMap[msg.sender][depositedAt];
+        // calculate k
+        /// @dev
+        /// if total_deposited_K == 0 | total_deposited_coin == 0
+        ///     => k = amount
+        /// else
+        ///     => k = amount * total_deposited_K / total_deposited_coin
+        uint256 depositedK = 0;
+        if(totalDepositAmt == 0 || totalKAmt == 0){
+            depositedK = msg.value;
+        } else {
+            depositedK = totalKAmt.mul(msg.value)/totalDepositAmt;
+        }
 
-        // Set depositDetail
-        dd.totalDepositAmt = depositMap[msg.sender][ud.lastDepositedAt].totalDepositAmt.add(msg.value);
-        dd.pastDepositedAt = ud.lastDepositedAt;
-        // Set user data
-        ud.lastDepositedAt = depositedAt;
+        // Set deposited map
+        depositedKMap[msg.sender] = depositedKMap[msg.sender].add(depositedK);
+        totalKAmt = totalKAmt.add(depositedK);
+
         // Set total users` deposited amount
         totalDepositAmt = totalDepositAmt.add(msg.value);
 
@@ -99,17 +71,8 @@ contract ETHPool is Ownable, ReentrancyGuard {
     function depositReward() external payable onlyOwner nonReentrant {
         require(msg.value > 0, "ETHPool: Invalid amount");
 
-        uint256 depositedAt = block.timestamp;
-        RewDepositDetail storage rdd = rewDepositMap[depositedAt];
-
-        // Set reward deposit data
-        rdd.rewAmt = msg.value;
-        rdd.totalDepositedAmt = totalDepositAmt.sub(totalClaimedAmt);
-        rdd.pastRewDepositedAt = lastRewDepositedAt;
-        // Set last reward deposited timestamp
-        lastRewDepositedAt = depositedAt;
         // Set total reward deposited amount
-        totalRewDepositAmt = totalRewDepositAmt.add(msg.value);
+        totalDepositAmt = totalDepositAmt.add(msg.value);
 
         // Pay to contract
         payable(address(this)).transfer(msg.value);
@@ -118,78 +81,31 @@ contract ETHPool is Ownable, ReentrancyGuard {
     }
 
     /// @dev Users withdraw Ether from the pool
-    function withdraw() external payable nonReentrant {
+    function withdraw(uint256 _amount) external payable nonReentrant {
 
-        uint256 claimableAmt = getClaimableAmt(msg.sender);
-        require(claimableAmt > 0, "No ETH");
+        uint256 claimableKAmt = getClaimableKAmt(msg.sender);
+        require(claimableKAmt >= _amount && _amount > 0, "INVALID AMOUNT");
 
-        UserDetail storage ud = userDetailMap[msg.sender];
-        uint256 userTotalDepositAmt = depositMap[msg.sender][ud.lastDepositedAt].totalDepositAmt;
-        uint256 userRewardAmt = getRewardAmt(msg.sender, lastRewDepositedAt);
+        // calculate claiming coin _amount
+        /// @dev amount * total_deposited_coin / total_deposited_K
+        uint256 claimedAmt = _amount.mul(totalDepositAmt).div(totalKAmt);
 
-        // Reset user deposit detail
-        depositMap[msg.sender][ud.lastDepositedAt].totalDepositAmt = 0;
-        // Reset user`s total claimed amount
-        ud.totalClaimedAmt = 0;
         // Set total deposited amount
-        totalDepositAmt = totalDepositAmt.sub(userTotalDepositAmt);
+        depositedKMap[msg.sender] = depositedKMap[msg.sender].sub(_amount);
         // Set total reward amount
-        totalRewDepositAmt = totalRewDepositAmt.sub(userRewardAmt);
-        // Reset claimedAmtMap
-        claimedAmtMap[msg.sender][lastRewDepositedAt] = 0;
+        totalKAmt = totalKAmt.sub(_amount);
+        // Set total deposit amount
+        totalDepositAmt = totalDepositAmt.sub(claimedAmt);
 
         // Pay to contract
-        payable(msg.sender).transfer(claimableAmt);
+        payable(msg.sender).transfer(claimedAmt);
 
-        emit Withdraw(msg.sender, claimableAmt);
+        emit Withdraw(msg.sender, claimedAmt);
     }
 
     /// @dev get claimable amount of user
-    function getClaimableAmt(address _addr) public view returns (uint256){
-        UserDetail memory ud = userDetailMap[_addr];
-
-        // Get user`s total deposit amount
-        uint256 userTotalDepositAmt = depositMap[_addr][ud.lastDepositedAt].totalDepositAmt;
-        // Calculate reward amount
-        uint256 userRewardAmt = getRewardAmt(_addr, lastRewDepositedAt);
-        // Calculate claimable amount
-        return userTotalDepositAmt.add(userRewardAmt).sub(ud.totalClaimedAmt);
-    }
-
-    /// @dev get user`s reward amount by _rewDepositedAt point
-    function getRewardAmt(address _addr, uint256 _rewDepositedAt) internal view returns (uint256){
-        if(_rewDepositedAt == 0) return 0;
-
-        UserDetail memory ud = userDetailMap[_addr];
-        RewDepositDetail memory rdd = rewDepositMap[_rewDepositedAt];
-
-        // Get user`s total deposit amount
-        uint256 userTotalDepositAmt = getTotalDepositAmt(_addr, ud.lastDepositedAt, _rewDepositedAt);
-        // Get user`s total claimed amount
-        uint256 userTotalClaimedAmt = getClaimedAmountMap(_addr, rdd.pastRewDepositedAt);
-        // Calculate reward amount
-        uint256 rewardAmt = userTotalDepositAmt.sub(userTotalClaimedAmt).mul(rdd.rewAmt).div(rdd.totalDepositedAmt);
-
-        if(rewardAmt == 0) return 0;
-        return getRewardAmt(_addr, rdd.pastRewDepositedAt).add(rewardAmt);
-    }
-
-    /// @dev get user total deposit amount by _tpTimestamp
-    /// @notice find first node below _tpTimestamp
-    function getTotalDepositAmt(address _addr, uint256 _depositedAt, uint256 _tpTimestamp) internal view returns (uint256) {
-        DepositDetail memory dd = depositMap[_addr][_depositedAt];
-        if(_tpTimestamp == 0 || _depositedAt < _tpTimestamp){
-            return dd.totalDepositAmt;
-        }
-        return getTotalDepositAmt(_addr, dd.pastDepositedAt, _tpTimestamp);
-    }
-
-    /// @dev get user total claimed amount by _rewDepositedAt
-    function getClaimedAmountMap(address _addr, uint256 _rewDepositedAt) internal view returns (uint256) {
-        if(_rewDepositedAt == 0 || claimedAmtMap[_addr][_rewDepositedAt] != 0){
-            return claimedAmtMap[_addr][_rewDepositedAt];
-        }
-        return getClaimedAmountMap(_addr, rewDepositMap[_rewDepositedAt].pastRewDepositedAt);
+    function getClaimableKAmt(address _addr) public view returns (uint256){
+        return depositedKMap[_addr];
     }
 
     /**

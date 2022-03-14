@@ -71,5 +71,5 @@ yarn hardhat query:GetTotalETH --network <NETWORK_NAME> --pooladdr DEPLOYED_CONT
 
 ## Deployed on Rinkeby Testnet
 
-[0x50ac559606c9656eD662D03DC2DCb2dEa54bBCae](https://rinkeby.etherscan.io/address/0x50ac559606c9656eD662D03DC2DCb2dEa54bBCae)
+[0x7eF7c9566b9902680804d0Bc72f9c8eb82C80A1c](https://rinkeby.etherscan.io/address/0x7eF7c9566b9902680804d0Bc72f9c8eb82C80A1c)
 
