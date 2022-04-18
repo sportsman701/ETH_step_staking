@@ -1,5 +1,5 @@
-# exactly_finance_challenge
-Sr Solidity Developer Challenge
+# eth_step_staking
+based on Sushiswap/Sushibar
 
 ## Installation
 ```console
